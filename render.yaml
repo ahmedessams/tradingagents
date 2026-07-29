@@ -1,0 +1,62 @@
+# Render Blueprint (https://render.com/docs/blueprint-spec)
+#
+# TradingAgents is an interactive terminal app with no HTTP server, so the
+# natural fit on Render is a scheduled Cron Job that runs a headless analysis
+# via scripts/run_analysis.py and writes the decision to the service logs.
+#
+# Deploy: push this file to your repo root, then in the Render dashboard
+# choose "New +" -> "Blueprint" and point it at the repo. Render will prompt
+# for every env var marked `sync: false` (your API keys).
+#
+# Notes:
+# - Cron Jobs on Render have ephemeral filesystems: the results directory and
+#   the reflection memory under ~/.tradingagents do not persist between runs.
+#   The final decision is printed to stdout, so it lands in the run logs.
+#   If you need persistent results/memory, switch this service to
+#   `type: worker` with a `disk`, and loop/schedule inside the process.
+# - The schedule below is UTC. 21:30 UTC on weekdays is after the US market
+#   close year-round (20:00 UTC in summer, 21:00 UTC in winter).
+# - The default config uses keyless data vendors (yfinance, Polymarket), so
+#   the only required secret is the key for your chosen LLM provider.
+
+services:
+  - type: cron
+    name: tradingagents-daily
+    runtime: docker
+    plan: starter
+    region: oregon
+    schedule: "30 21 * * 1-5" # weekdays, 21:30 UTC (after US market close)
+    # Overrides the image's interactive `tradingagents` entrypoint.
+    dockerCommand: python scripts/run_analysis.py
+    envVars:
+      # What to analyze. Comma-separated; the trade date defaults to "today"
+      # (UTC) at run time. Set TRADINGAGENTS_ANALYSIS_DATE for a fixed date.
+      - key: TRADINGAGENTS_TICKERS
+        value: NVDA
+      # LLM provider + models. Any provider from the registry works
+      # (openai, anthropic, google, deepseek, qwen, groq, ollama, ...);
+      # set the matching *_API_KEY below to match.
+      - key: TRADINGAGENTS_LLM_PROVIDER
+        value: openai
+      # Required for the default provider. `sync: false` means Render asks
+      # for the value at deploy time and never writes it to this file.
+      - key: OPENAI_API_KEY
+        sync: false
+      # --- Optional keys, uncomment to enable ---
+      # - key: ANTHROPIC_API_KEY      # if TRADINGAGENTS_LLM_PROVIDER=anthropic
+      #   sync: false
+      # - key: FRED_API_KEY           # macro data (macro_data vendor "fred")
+      #   sync: false
+      # - key: ALPHA_VANTAGE_API_KEY  # alternative/fallback data vendor
+      #   sync: false
+      # --- Optional tuning (see tradingagents/default_config.py) ---
+      # - key: TRADINGAGENTS_DEEP_THINK_LLM
+      #   value: gpt-5.5
+      # - key: TRADINGAGENTS_QUICK_THINK_LLM
+      #   value: gpt-5.4-mini
+      # - key: TRADINGAGENTS_MAX_DEBATE_ROUNDS
+      #   value: "1"
+      # - key: TRADINGAGENTS_MAX_RISK_ROUNDS
+      #   value: "1"
+      # - key: TRADINGAGENTS_OUTPUT_LANGUAGE
+      #   value: English
