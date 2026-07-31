@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from tradingagents.dataflows.utils import safe_ticker_component
 from webapp.runner import JobStore, QueueFullError
+from webapp.stocklist import lookup_company_name
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +137,12 @@ def create_app(password: str | None = None) -> FastAPI:
         jobs = []
         for ticker in body.tickers:
             try:
-                job = app.state.store.submit(ticker, trade_date, body.asset_type)
+                job = app.state.store.submit(
+                    ticker,
+                    trade_date,
+                    body.asset_type,
+                    company=lookup_company_name(ticker),
+                )
             except QueueFullError as exc:
                 raise HTTPException(status_code=429, detail=str(exc)) from exc
             jobs.append(job.to_summary())

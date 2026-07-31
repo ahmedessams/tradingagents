@@ -10,6 +10,7 @@ from tradingagents.dataflows.utils import safe_ticker_component
 from webapp.stocklist import (
     CURATED_ETFS,
     curated_etf_entries,
+    lookup_company_name,
     merge_exchange_lists,
     normalize_symbol,
 )
@@ -111,6 +112,16 @@ class TestCommittedStockList(unittest.TestCase):
         symbols = {e["s"] for e in json.loads(STOCKS_JSON.read_text())}
         for expected in ("AAPL", "NVDA", "MSFT", "BRK-B", "SPY"):
             self.assertIn(expected, symbols)
+
+
+@pytest.mark.unit
+class TestLookupCompanyName(unittest.TestCase):
+    def test_known_symbol_resolves(self):
+        self.assertEqual(lookup_company_name("NVDA"), "NVIDIA Corporation")
+
+    def test_unknown_symbol_is_none(self):
+        self.assertIsNone(lookup_company_name("BTC-USD"))
+        self.assertIsNone(lookup_company_name("NOT-A-TICKER-XYZ"))
 
 
 if __name__ == "__main__":

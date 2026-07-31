@@ -72,6 +72,7 @@
   th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
   th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
   td.summary { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  td .co { color: var(--muted); font-size: 12px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 12px; font-weight: 700; }
   .st { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
   .st.queued  { background: #eceff1; color: #607d8b; }
@@ -254,6 +255,8 @@ function renderChips() {
   for (const t of tickers) {
     const chip = document.createElement("span");
     chip.className = "chip";
+    const known = stockList.find((e) => e.s === t);
+    if (known) chip.title = known.n;
     chip.append(t);
     const x = document.createElement("button");
     x.textContent = "×";
@@ -448,7 +451,7 @@ async function refresh() {
       ? `<span class="pill" style="background:${RATING_COLORS[j.rating] || "#607d8b"}">${esc(j.rating)}</span>` : "—";
     const status = `<span class="st ${esc(j.status)}" title="${esc(j.error || "")}">${esc(j.status)}</span>`;
     tr.innerHTML =
-      `<td><strong>${esc(j.ticker)}</strong></td>` +
+      `<td><strong>${esc(j.ticker)}</strong>${j.company ? `<div class="co">${esc(j.company)}</div>` : ""}</td>` +
       `<td>${esc(j.trade_date)}</td>` +
       `<td>${rating}</td>` +
       `<td>${j.price_target != null ? esc(j.price_target) : "—"}</td>` +
@@ -481,7 +484,8 @@ async function openDetail(id) {
     job = await res.json();
   } catch { return; }
 
-  $("dtitle").textContent = `${job.ticker} — ${job.trade_date} — ${job.rating || job.status}`;
+  $("dtitle").textContent =
+    `${job.ticker}${job.company ? " · " + job.company : ""} — ${job.trade_date} — ${job.rating || job.status}`;
   detailReports = job.reports || {};
   const tabs = $("dtabs");
   tabs.textContent = "";

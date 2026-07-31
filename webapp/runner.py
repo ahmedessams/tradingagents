@@ -89,6 +89,7 @@ class Job:
     ticker: str
     trade_date: str
     asset_type: str
+    company: str | None = None
     status: str = "queued"  # queued | running | done | failed
     created_at: str = field(default_factory=_utcnow)
     started_at: str | None = None
@@ -104,6 +105,7 @@ class Job:
         return {
             "id": self.id,
             "ticker": self.ticker,
+            "company": self.company,
             "trade_date": self.trade_date,
             "asset_type": self.asset_type,
             "status": self.status,
@@ -141,7 +143,13 @@ class JobStore:
         self._queue: queue.Queue[str] = queue.Queue()
         self._worker: threading.Thread | None = None
 
-    def submit(self, ticker: str, trade_date: str, asset_type: str) -> Job:
+    def submit(
+        self,
+        ticker: str,
+        trade_date: str,
+        asset_type: str,
+        company: str | None = None,
+    ) -> Job:
         with self._lock:
             active = sum(1 for j in self._jobs.values() if j.status not in _TERMINAL)
             if active >= MAX_ACTIVE_JOBS:
@@ -151,7 +159,13 @@ class JobStore:
             job_id = uuid.uuid4().hex[:8]
             while job_id in self._jobs:
                 job_id = uuid.uuid4().hex[:8]
-            job = Job(id=job_id, ticker=ticker, trade_date=trade_date, asset_type=asset_type)
+            job = Job(
+                id=job_id,
+                ticker=ticker,
+                trade_date=trade_date,
+                asset_type=asset_type,
+                company=company,
+            )
             self._jobs[job_id] = job
             self._prune_locked()
         self._queue.put(job_id)

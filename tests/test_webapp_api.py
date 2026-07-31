@@ -183,6 +183,7 @@ class TestJobLifecycle(unittest.TestCase):
             job_id = response.json()["jobs"][0]["id"]
 
             job = _wait_for_status(client, AUTH, job_id, "done")
+            self.assertEqual(job["company"], "NVIDIA Corporation")
             self.assertEqual(job["rating"], "Buy")
             self.assertEqual(job["price_target"], 42.0)
             self.assertEqual(job["executive_summary"], "Compelling entry point.")

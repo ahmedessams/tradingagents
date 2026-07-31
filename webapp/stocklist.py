@@ -11,7 +11,13 @@ exchange}`` — because the whole list ships to the browser.
 
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+from pathlib import Path
+
 from tradingagents.dataflows.utils import safe_ticker_component
+
+STOCKS_JSON_PATH = Path(__file__).parent / "static" / "us_stocks.json"
 
 EXCHANGE_URLS = {
     "nasdaq": "https://raw.githubusercontent.com/rreichel3/US-Stock-Symbols/main/nasdaq/nasdaq_full_tickers.json",
@@ -110,3 +116,21 @@ def merge_exchange_lists(payloads: dict[str, list[dict]]) -> list[dict]:
 
 def curated_etf_entries() -> list[dict]:
     return [{"s": s, "n": n, "x": "etf"} for s, n in CURATED_ETFS]
+
+
+@lru_cache(maxsize=1)
+def symbol_name_map() -> dict[str, str]:
+    """Symbol -> company name from the committed list; {} if it's missing.
+
+    Cached for the process lifetime — the file only changes on redeploy,
+    which restarts the server anyway.
+    """
+    try:
+        entries = json.loads(STOCKS_JSON_PATH.read_text())
+    except (OSError, ValueError):
+        return {}
+    return {e["s"]: e["n"] for e in entries if e.get("s") and e.get("n")}
+
+
+def lookup_company_name(ticker: str) -> str | None:
+    return symbol_name_map().get(ticker)
