@@ -90,6 +90,28 @@ class TestAuth(unittest.TestCase):
 
 
 @pytest.mark.unit
+class TestTickerList(unittest.TestCase):
+    def test_tickers_endpoint_open_and_shaped(self):
+        client = _client()
+        response = client.get("/api/tickers")  # deliberately no auth header
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+        self.assertGreater(len(data), 1000)
+        self.assertEqual(set(data[0]), {"s", "n", "x"})
+        self.assertIn("max-age", response.headers.get("cache-control", ""))
+
+    def test_missing_file_returns_empty_list(self):
+        with mock.patch.object(
+            server, "_STATIC_DIR", server._STATIC_DIR / "does-not-exist"
+        ):
+            client = _client()
+            response = client.get("/api/tickers")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+
+@pytest.mark.unit
 class TestJobValidation(unittest.TestCase):
     def setUp(self):
         self.client = _client()
@@ -161,6 +183,7 @@ class TestJobLifecycle(unittest.TestCase):
             job_id = response.json()["jobs"][0]["id"]
 
             job = _wait_for_status(client, AUTH, job_id, "done")
+            self.assertEqual(job["company"], "NVIDIA Corporation")
             self.assertEqual(job["rating"], "Buy")
             self.assertEqual(job["price_target"], 42.0)
             self.assertEqual(job["executive_summary"], "Compelling entry point.")

@@ -18,12 +18,13 @@ import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
 from tradingagents.dataflows.utils import safe_ticker_component
 from webapp.runner import JobStore, QueueFullError
+from webapp.stocklist import lookup_company_name
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,20 @@ def create_app(password: str | None = None) -> FastAPI:
     def index() -> FileResponse:
         return FileResponse(_STATIC_DIR / "index.html")
 
+    # Public reference data (same trust level as the page itself) — no auth,
+    # so the search box can populate before the password is entered.
+    @app.get("/api/tickers")
+    def tickers() -> Response:
+        path = _STATIC_DIR / "us_stocks.json"
+        if not path.is_file():
+            logger.warning("us_stocks.json missing; ticker search disabled")
+            return JSONResponse([], headers={"Cache-Control": "max-age=300"})
+        return FileResponse(
+            path,
+            media_type="application/json",
+            headers={"Cache-Control": "max-age=86400"},
+        )
+
     @app.get("/api/auth/check")
     def auth_check(request: Request) -> dict:
         require_auth(request)
@@ -122,7 +137,12 @@ def create_app(password: str | None = None) -> FastAPI:
         jobs = []
         for ticker in body.tickers:
             try:
-                job = app.state.store.submit(ticker, trade_date, body.asset_type)
+                job = app.state.store.submit(
+                    ticker,
+                    trade_date,
+                    body.asset_type,
+                    company=lookup_company_name(ticker),
+                )
             except QueueFullError as exc:
                 raise HTTPException(status_code=429, detail=str(exc)) from exc
             jobs.append(job.to_summary())
