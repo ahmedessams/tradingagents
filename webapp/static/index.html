@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradingAgents</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --border: #dde1e6; --text: #1c2128;
+    --muted: #6a737d; --accent: #2563eb; --accent-dark: #1d4ed8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; margin-bottom: 20px;
+  }
+  label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; display: block; margin-bottom: 6px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+  .grow { flex: 1 1 320px; }
+  input[type=text], input[type=date], input[type=password] {
+    font: inherit; padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: 8px; background: #fff; color: var(--text); width: 100%;
+  }
+  .chipbox {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 6px;
+    border: 1px solid var(--border); border-radius: 8px; background: #fff; min-height: 44px;
+  }
+  .chipbox input { border: none; outline: none; flex: 1; min-width: 120px; padding: 6px; font: inherit; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; background: #e8effd;
+    color: #1d4ed8; border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 600;
+  }
+  .chip button { border: none; background: none; color: inherit; cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .presets button {
+    font-size: 12px; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: #fff; color: var(--muted);
+  }
+  .presets button:hover { border-color: var(--accent); color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { font: inherit; padding: 8px 16px; border: none; background: #fff; cursor: pointer; color: var(--muted); }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .run {
+    font: inherit; font-weight: 600; color: #fff; background: var(--accent);
+    border: none; border-radius: 8px; padding: 10px 22px; cursor: pointer;
+  }
+  .run:hover { background: var(--accent-dark); }
+  .run:disabled { opacity: .5; cursor: default; }
+  .err { color: #c62828; font-size: 13px; margin-top: 8px; white-space: pre-wrap; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  td.summary { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; color: #fff; font-size: 12px; font-weight: 700; }
+  .st { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .st.queued  { background: #eceff1; color: #607d8b; }
+  .st.running { background: #e3f2fd; color: #1565c0; animation: pulse 1.4s ease-in-out infinite; }
+  .st.done    { background: #e8f5e9; color: #1b5e20; }
+  .st.failed  { background: #ffebee; color: #b71c1c; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .detbtn { font: inherit; font-size: 13px; color: var(--accent); background: none; border: none; cursor: pointer; padding: 0; }
+  .empty { color: var(--muted); text-align: center; padding: 28px 0; }
+  dialog {
+    width: min(880px, 94vw); max-height: 86vh; border: 1px solid var(--border);
+    border-radius: 12px; padding: 0;
+  }
+  dialog::backdrop { background: rgba(15, 23, 42, .45); }
+  .dhead { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .dhead h2 { font-size: 16px; margin: 0; }
+  .dhead button { font-size: 18px; border: none; background: none; cursor: pointer; color: var(--muted); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 10px 18px 0; }
+  .tabs button {
+    font: inherit; font-size: 13px; padding: 6px 12px; border: 1px solid var(--border);
+    border-bottom: none; border-radius: 8px 8px 0 0; background: #f1f3f5; cursor: pointer; color: var(--muted);
+  }
+  .tabs button.on { background: #fff; color: var(--text); font-weight: 600; }
+  .dbody { padding: 16px 18px 20px; overflow-y: auto; max-height: 62vh; border-top: 1px solid var(--border); }
+  .md h1, .md h2, .md h3 { margin: 14px 0 6px; line-height: 1.3; }
+  .md h1 { font-size: 19px; } .md h2 { font-size: 17px; } .md h3 { font-size: 15px; }
+  .md p { margin: 8px 0; }
+  .md ul, .md ol { margin: 8px 0; padding-left: 24px; }
+  .md code { background: #f1f3f5; border-radius: 4px; padding: 1px 5px; font-size: 13px; }
+  .md pre { background: #f1f3f5; border-radius: 8px; padding: 10px; overflow-x: auto; }
+  .md pre code { background: none; padding: 0; }
+  .md table { margin: 10px 0; font-size: 13px; }
+  .md th, .md td { border: 1px solid var(--border); padding: 5px 8px; white-space: normal; }
+  .foot { color: var(--muted); font-size: 12px; margin-top: 16px; }
+  #authbar { display: none; gap: 10px; align-items: flex-end; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TradingAgents</h1>
+  <p class="sub">Multi-agent LLM trading analysis — pick tickers, run, review the decisions.</p>
+
+  <div class="panel" id="authpanel" style="display:none">
+    <div class="row" id="authbar" style="display:flex">
+      <div class="grow">
+        <label for="pw">Password</label>
+        <input type="password" id="pw" placeholder="Server password" autocomplete="current-password">
+      </div>
+      <button class="run" id="pwsave">Unlock</button>
+    </div>
+    <div class="err" id="autherr"></div>
+  </div>
+
+  <div class="panel" id="formpanel" style="display:none">
+    <div class="row">
+      <div class="grow">
+        <label>Tickers</label>
+        <div class="chipbox" id="chipbox">
+          <input type="text" id="tickerinput" placeholder="Type a ticker, press Enter" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="presets" id="presets"></div>
+      </div>
+      <div>
+        <label for="date">Analysis date</label>
+        <input type="date" id="date">
+      </div>
+      <div>
+        <label>Asset type</label>
+        <div class="seg">
+          <button type="button" id="seg-stock" class="on">Stock</button>
+          <button type="button" id="seg-crypto">Crypto</button>
+        </div>
+      </div>
+      <button class="run" id="runbtn">Run analysis</button>
+    </div>
+    <div class="err" id="formerr"></div>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticker</th><th>Date</th><th>Rating</th><th>Price target</th>
+          <th>Horizon</th><th>Executive summary</th><th>Status</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty">No analyses yet. Add tickers above and hit Run.</div>
+    <div class="foot">Results live in server memory only — they reset when the service restarts or redeploys. Each run takes several minutes and runs one at a time.</div>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <div class="dhead"><h2 id="dtitle"></h2><button id="dclose" aria-label="Close">✕</button></div>
+  <div class="tabs" id="dtabs"></div>
+  <div class="dbody"><div class="md" id="dcontent"></div></div>
+</dialog>
+
+<script>
+"use strict";
+
+const RATING_COLORS = {
+  "Buy": "#1a7f37", "Overweight": "#4caf50", "Hold": "#b8860b",
+  "Underweight": "#e07b39", "Sell": "#c62828",
+};
+const PRESETS = ["NVDA", "AAPL", "MSFT", "SPY", "BTC-USD", "ETH-USD"];
+const REPORT_TABS = [
+  ["final_trade_decision", "Decision"],
+  ["market_report", "Market"],
+  ["sentiment_report", "Sentiment"],
+  ["news_report", "News"],
+  ["fundamentals_report", "Fundamentals"],
+  ["investment_plan", "Research"],
+  ["trader_investment_plan", "Trader"],
+];
+const TICKER_RE = /^[A-Z0-9._^=+-]{1,32}$/;
+
+const $ = (id) => document.getElementById(id);
+let tickers = [];
+let assetType = "stock";
+let pollTimer = null;
+
+/* ---------- auth ---------- */
+function getPw() { return localStorage.getItem("ta_password") || ""; }
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  const pw = getPw();
+  if (pw) opts.headers["X-API-Key"] = pw;
+  const res = await fetch(path, opts);
+  if (res.status === 401) {
+    localStorage.removeItem("ta_password");
+    showAuth("Password required.");
+    throw new Error("unauthorized");
+  }
+  return res;
+}
+
+function showAuth(msg) {
+  $("authpanel").style.display = "block";
+  $("formpanel").style.display = "none";
+  $("autherr").textContent = msg || "";
+}
+
+function showApp() {
+  $("authpanel").style.display = "none";
+  $("formpanel").style.display = "block";
+  refresh();
+}
+
+async function checkAuth() {
+  try {
+    const res = await fetch("/api/auth/check", {
+      headers: getPw() ? { "X-API-Key": getPw() } : {},
+    });
+    if (res.ok) showApp();
+    else showAuth(getPw() ? "Stored password was rejected." : "");
+  } catch {
+    showAuth("Could not reach the server.");
+  }
+}
+
+$("pwsave").addEventListener("click", async () => {
+  localStorage.setItem("ta_password", $("pw").value);
+  $("pw").value = "";
+  await checkAuth();
+});
+$("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") $("pwsave").click(); });
+
+/* ---------- ticker chips ---------- */
+function renderChips() {
+  const box = $("chipbox");
+  box.querySelectorAll(".chip").forEach((c) => c.remove());
+  const input = $("tickerinput");
+  for (const t of tickers) {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.append(t);
+    const x = document.createElement("button");
+    x.textContent = "×";
+    x.title = "Remove " + t;
+    x.addEventListener("click", () => { tickers = tickers.filter((v) => v !== t); renderChips(); });
+    chip.append(x);
+    box.insertBefore(chip, input);
+  }
+}
+
+function addTicker(raw) {
+  const t = raw.trim().toUpperCase();
+  if (!t) return;
+  if (!TICKER_RE.test(t)) { $("formerr").textContent = "Invalid ticker: " + t; return; }
+  $("formerr").textContent = "";
+  if (!tickers.includes(t)) { tickers.push(t); renderChips(); }
+}
+
+$("tickerinput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === ",") {
+    e.preventDefault();
+    addTicker(e.target.value);
+    e.target.value = "";
+  } else if (e.key === "Backspace" && !e.target.value && tickers.length) {
+    tickers.pop();
+    renderChips();
+  }
+});
+$("tickerinput").addEventListener("blur", (e) => { addTicker(e.target.value); e.target.value = ""; });
+
+for (const p of PRESETS) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = p;
+  b.addEventListener("click", () => addTicker(p));
+  $("presets").append(b);
+}
+
+/* ---------- asset type ---------- */
+$("seg-stock").addEventListener("click", () => setAsset("stock"));
+$("seg-crypto").addEventListener("click", () => setAsset("crypto"));
+function setAsset(v) {
+  assetType = v;
+  $("seg-stock").classList.toggle("on", v === "stock");
+  $("seg-crypto").classList.toggle("on", v === "crypto");
+}
+
+/* ---------- run ---------- */
+$("date").value = new Date().toISOString().slice(0, 10);
+
+$("runbtn").addEventListener("click", async () => {
+  addTicker($("tickerinput").value);
+  $("tickerinput").value = "";
+  if (!tickers.length) { $("formerr").textContent = "Add at least one ticker."; return; }
+  $("runbtn").disabled = true;
+  $("formerr").textContent = "";
+  try {
+    const res = await api("/api/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tickers, date: $("date").value || null, asset_type: assetType }),
+    });
+    if (res.ok) {
+      tickers = [];
+      renderChips();
+      refresh();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      $("formerr").textContent = typeof body.detail === "string"
+        ? body.detail
+        : JSON.stringify(body.detail || body, null, 2);
+    }
+  } catch (e) {
+    if (e.message !== "unauthorized") $("formerr").textContent = "Request failed: " + e.message;
+  } finally {
+    $("runbtn").disabled = false;
+  }
+});
+
+/* ---------- results table ---------- */
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function refresh() {
+  let jobs;
+  try {
+    const res = await api("/api/jobs");
+    if (!res.ok) return;
+    jobs = await res.json();
+  } catch { return; }
+
+  $("empty").style.display = jobs.length ? "none" : "block";
+  const tbody = $("rows");
+  tbody.textContent = "";
+  for (const j of jobs) {
+    const tr = document.createElement("tr");
+    const rating = j.rating
+      ? `<span class="pill" style="background:${RATING_COLORS[j.rating] || "#607d8b"}">${esc(j.rating)}</span>` : "—";
+    const status = `<span class="st ${esc(j.status)}" title="${esc(j.error || "")}">${esc(j.status)}</span>`;
+    tr.innerHTML =
+      `<td><strong>${esc(j.ticker)}</strong></td>` +
+      `<td>${esc(j.trade_date)}</td>` +
+      `<td>${rating}</td>` +
+      `<td>${j.price_target != null ? esc(j.price_target) : "—"}</td>` +
+      `<td>${j.time_horizon ? esc(j.time_horizon) : "—"}</td>` +
+      `<td class="summary" title="${esc(j.executive_summary || "")}">${esc(j.executive_summary || "—")}</td>` +
+      `<td>${status}</td><td></td>`;
+    if (j.status === "done" || j.status === "failed") {
+      const btn = document.createElement("button");
+      btn.className = "detbtn";
+      btn.textContent = "Details";
+      btn.addEventListener("click", () => openDetail(j.id));
+      tr.lastElementChild.append(btn);
+    }
+    tbody.append(tr);
+  }
+
+  const active = jobs.some((j) => j.status === "queued" || j.status === "running");
+  clearTimeout(pollTimer);
+  if (active) pollTimer = setTimeout(refresh, 5000);
+}
+
+/* ---------- detail dialog ---------- */
+let detailReports = {};
+
+async function openDetail(id) {
+  let job;
+  try {
+    const res = await api("/api/jobs/" + encodeURIComponent(id));
+    if (!res.ok) return;
+    job = await res.json();
+  } catch { return; }
+
+  $("dtitle").textContent = `${job.ticker} — ${job.trade_date} — ${job.rating || job.status}`;
+  detailReports = job.reports || {};
+  const tabs = $("dtabs");
+  tabs.textContent = "";
+  if (job.status === "failed") {
+    $("dcontent").innerHTML = `<p><strong>Run failed:</strong></p><pre>${esc(job.error || "unknown error")}</pre>`;
+  } else {
+    let first = null;
+    for (const [key, label] of REPORT_TABS) {
+      if (!detailReports[key]) continue;
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.dataset.key = key;
+      b.addEventListener("click", () => selectTab(key));
+      tabs.append(b);
+      if (!first) first = key;
+    }
+    if (first) selectTab(first);
+    else $("dcontent").textContent = "No reports available.";
+  }
+  $("dlg").showModal();
+}
+
+function selectTab(key) {
+  for (const b of $("dtabs").children) b.classList.toggle("on", b.dataset.key === key);
+  $("dcontent").innerHTML = renderMarkdown(detailReports[key] || "");
+}
+
+$("dclose").addEventListener("click", () => $("dlg").close());
+$("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").close(); });
+
+/* ---------- minimal markdown renderer (escape-first, no external libs) ---------- */
+function inlineMd(s) {
+  return s
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+
+function renderMarkdown(md) {
+  const lines = esc(md).replace(/\r\n/g, "\n").split("\n");
+  const out = [];
+  let list = null, para = [], code = false, tableRows = null;
+
+  const flushPara = () => { if (para.length) { out.push("<p>" + inlineMd(para.join(" ")) + "</p>"); para = []; } };
+  const flushList = () => { if (list) { out.push(`<${list.tag}>` + list.items.map((i) => `<li>${inlineMd(i)}</li>`).join("") + `</${list.tag}>`); list = null; } };
+  const flushTable = () => {
+    if (!tableRows) return;
+    const [head, ...body] = tableRows;
+    let html = "<table><thead><tr>" + head.map((c) => `<th>${inlineMd(c)}</th>`).join("") + "</tr></thead><tbody>";
+    for (const row of body) html += "<tr>" + row.map((c) => `<td>${inlineMd(c)}</td>`).join("") + "</tr>";
+    out.push(html + "</tbody></table>");
+    tableRows = null;
+  };
+
+  for (const raw of lines) {
+    const line = raw;
+    if (code) {
+      if (/^```/.test(line.trim())) { out.push("</code></pre>"); code = false; }
+      else out.push(line);
+      continue;
+    }
+    if (/^```/.test(line.trim())) { flushPara(); flushList(); flushTable(); out.push("<pre><code>"); code = true; continue; }
+
+    const trimmed = line.trim();
+    if (/^\|.*\|$/.test(trimmed)) {
+      flushPara(); flushList();
+      const cells = trimmed.slice(1, -1).split("|").map((c) => c.trim());
+      if (cells.every((c) => /^:?-{2,}:?$/.test(c))) continue; // separator row
+      (tableRows = tableRows || []).push(cells);
+      continue;
+    }
+    flushTable();
+
+    const h = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { flushPara(); flushList(); out.push(`<h${Math.min(h[1].length, 3)}>${inlineMd(h[2])}</h${Math.min(h[1].length, 3)}>`); continue; }
+
+    const ul = trimmed.match(/^[-*]\s+(.*)$/);
+    const ol = trimmed.match(/^\d+[.)]\s+(.*)$/);
+    if (ul || ol) {
+      flushPara();
+      const tag = ul ? "ul" : "ol";
+      if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
+      list.items.push((ul || ol)[1]);
+      continue;
+    }
+
+    if (!trimmed) { flushPara(); flushList(); continue; }
+    para.push(trimmed);
+  }
+  if (code) out.push("</code></pre>");
+  flushPara(); flushList(); flushTable();
+  return out.join("\n");
+}
+
+/* ---------- boot ---------- */
+checkAuth();
+</script>
+</body>
+</html>
