@@ -38,6 +38,20 @@
     color: #1d4ed8; border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 600;
   }
   .chip button { border: none; background: none; color: inherit; cursor: pointer; font-size: 14px; padding: 0; line-height: 1; }
+  .combo { position: relative; }
+  .dropdown {
+    display: none; position: absolute; z-index: 20; left: 0; right: 0; top: 100%;
+    margin-top: 4px; background: #fff; border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+    max-height: 288px; overflow-y: auto;
+  }
+  .dropdown.open { display: block; }
+  .opt { display: flex; align-items: baseline; gap: 8px; padding: 7px 12px; cursor: pointer; }
+  .opt.hl, .opt:hover { background: #eef4ff; }
+  .opt .sym { font-weight: 700; min-width: 72px; }
+  .opt .nm { color: var(--muted); font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .opt .ex { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .opt.free .nm { font-style: italic; }
   .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .presets button {
     font-size: 12px; padding: 3px 10px; border-radius: 999px; cursor: pointer;
@@ -115,8 +129,11 @@
     <div class="row">
       <div class="grow">
         <label>Tickers</label>
-        <div class="chipbox" id="chipbox">
-          <input type="text" id="tickerinput" placeholder="Type a ticker, press Enter" autocomplete="off" spellcheck="false">
+        <div class="combo">
+          <div class="chipbox" id="chipbox">
+            <input type="text" id="tickerinput" placeholder="Search US stocks by symbol or name" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="dropdown">
+          </div>
+          <div class="dropdown" id="dropdown" role="listbox"></div>
         </div>
         <div class="presets" id="presets"></div>
       </div>
@@ -206,6 +223,7 @@ function showAuth(msg) {
 function showApp() {
   $("authpanel").style.display = "none";
   $("formpanel").style.display = "block";
+  loadStockList();
   refresh();
 }
 
@@ -254,17 +272,109 @@ function addTicker(raw) {
   if (!tickers.includes(t)) { tickers.push(t); renderChips(); }
 }
 
+/* ---------- stock search dropdown ---------- */
+let stockList = [];        // [{s, n, x}] loaded from /api/tickers
+let matches = [];
+let highlight = -1;
+
+async function loadStockList() {
+  try {
+    const res = await fetch("/api/tickers");
+    if (res.ok) stockList = await res.json();
+  } catch { /* search stays disabled; free-text entry still works */ }
+}
+
+function searchStocks(query) {
+  const q = query.trim().toUpperCase();
+  if (!q) return [];
+  const prefix = [], symSub = [], nameSub = [];
+  for (const e of stockList) {
+    if (tickers.includes(e.s)) continue;
+    if (e.s.startsWith(q)) prefix.push(e);
+    else if (e.s.includes(q)) symSub.push(e);
+    else if (e.n.toUpperCase().includes(q)) nameSub.push(e);
+    if (prefix.length >= 50) break;
+  }
+  return prefix.concat(symSub, nameSub).slice(0, 50);
+}
+
+function closeDropdown() {
+  $("dropdown").classList.remove("open");
+  $("tickerinput").setAttribute("aria-expanded", "false");
+  matches = [];
+  highlight = -1;
+}
+
+function renderDropdown(query) {
+  const dd = $("dropdown");
+  matches = searchStocks(query);
+  dd.textContent = "";
+  if (!matches.length) { closeDropdown(); return; }
+  highlight = 0;
+  matches.forEach((e, i) => {
+    const row = document.createElement("div");
+    row.className = "opt" + (i === highlight ? " hl" : "");
+    row.setAttribute("role", "option");
+    const sym = document.createElement("span");
+    sym.className = "sym";
+    sym.textContent = e.s;
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = e.n;
+    const ex = document.createElement("span");
+    ex.className = "ex";
+    ex.textContent = e.x;
+    row.append(sym, nm, ex);
+    // mousedown, not click: it fires before the input's blur handler.
+    row.addEventListener("mousedown", (ev) => {
+      ev.preventDefault();
+      pickMatch(i);
+    });
+    dd.append(row);
+  });
+  dd.classList.add("open");
+  $("tickerinput").setAttribute("aria-expanded", "true");
+}
+
+function moveHighlight(delta) {
+  if (!matches.length) return;
+  highlight = (highlight + delta + matches.length) % matches.length;
+  const rows = $("dropdown").children;
+  for (let i = 0; i < rows.length; i++) rows[i].classList.toggle("hl", i === highlight);
+  rows[highlight].scrollIntoView({ block: "nearest" });
+}
+
+function pickMatch(index) {
+  const entry = matches[index];
+  if (entry) addTicker(entry.s);
+  $("tickerinput").value = "";
+  closeDropdown();
+  $("tickerinput").focus();
+}
+
+$("tickerinput").addEventListener("input", (e) => renderDropdown(e.target.value));
+
 $("tickerinput").addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown") { e.preventDefault(); moveHighlight(1); return; }
+  if (e.key === "ArrowUp") { e.preventDefault(); moveHighlight(-1); return; }
+  if (e.key === "Escape") { closeDropdown(); return; }
   if (e.key === "Enter" || e.key === ",") {
     e.preventDefault();
-    addTicker(e.target.value);
-    e.target.value = "";
+    if (matches.length && highlight >= 0) pickMatch(highlight);
+    else { addTicker(e.target.value); e.target.value = ""; closeDropdown(); }
   } else if (e.key === "Backspace" && !e.target.value && tickers.length) {
     tickers.pop();
     renderChips();
   }
 });
-$("tickerinput").addEventListener("blur", (e) => { addTicker(e.target.value); e.target.value = ""; });
+
+$("tickerinput").addEventListener("blur", (e) => {
+  // Committing free text on blur only makes sense when the user typed
+  // something that isn't a pending dropdown choice.
+  closeDropdown();
+  addTicker(e.target.value);
+  e.target.value = "";
+});
 
 for (const p of PRESETS) {
   const b = document.createElement("button");
