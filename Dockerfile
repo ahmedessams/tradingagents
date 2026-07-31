@@ -8,7 +8,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /build
 COPY . .
-RUN pip install --no-cache-dir .
+# [web] adds the FastAPI/uvicorn server deps so the same image can run either
+# the CLI (default ENTRYPOINT) or the web frontend (uvicorn webapp.server:app).
+RUN pip install --no-cache-dir ".[web]"
 
 FROM python:3.12-slim
 

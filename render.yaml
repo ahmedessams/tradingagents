@@ -60,3 +60,23 @@ services:
       #   value: "1"
       # - key: TRADINGAGENTS_OUTPUT_LANGUAGE
       #   value: English
+
+  # Web frontend: pick tickers in the browser, run analyses, view results in
+  # a table. Same Docker image as the cron job; dockerCommand swaps the
+  # interactive-CLI entrypoint for the uvicorn server.
+  - type: web
+    name: tradingagents-web
+    runtime: docker
+    plan: starter
+    region: oregon
+    healthCheckPath: /healthz
+    dockerCommand: uvicorn webapp.server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Shared UI/API password. Without it the app runs with auth DISABLED,
+      # letting anyone with the URL spend your LLM credits.
+      - key: TRADINGAGENTS_WEB_PASSWORD
+        sync: false
+      - key: TRADINGAGENTS_LLM_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false
